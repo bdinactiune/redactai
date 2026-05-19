@@ -121,7 +121,12 @@ export default function Home() {
         body: JSON.stringify({ contentType, topic, tone, instructions }),
       });
       const data = await res.json();
-      setOutput((data.text || 'Eroare').replace(/^\*\*(.+)\*\*$/gm, '## $1').replace(/^\* /gm, '- '));
+      // LINIA 124 MODIFICATĂ
+      setOutput((data.text || 'Eroare')
+        .replace(/^\*\*([^*\n]+)\*\*\s*$/gm, '## $1')
+        .replace(/^\*\*([^*\n]+)\*\*:/gm, '## $1')
+        .replace(/^\* /gm, '- '));
+      
       if (data.text && data.text !== 'Eroare') {
         const newEntry = { topic, content: data.text, date: new Date().toLocaleString() };
         const newHistory = [newEntry, ...history];
