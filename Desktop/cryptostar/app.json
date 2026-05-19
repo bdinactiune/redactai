@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "25e49168-f914-46f1-8b21-242aa8a4e916"
+      }
+    },
+    "android": {
+      "package": "com.bdinactiune.cryptostar"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Cryptex Trading",
+    "slug": "cryptex-trading",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#090E1A"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#090E1A"
+      },
+      "package": "com.cryptex.trading"
+    },
+    "plugins": ["expo-font"]
+  }
+}
