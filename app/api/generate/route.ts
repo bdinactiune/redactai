@@ -9,18 +9,16 @@ export async function POST(request: Request) {
     }
 
     const prompt = language === 'en'
-      ? `Generate a ${contentType} on the topic "${topic}". Tone: ${tone}. Additional instructions: ${instructions || 'none'}.
+      ? `Generate a ${contentType} on the topic "${topic}". Tone: ${tone}. Instructions: ${instructions || 'none'}.
 Format rules:
 - Use ## for main headings and ### for subheadings (never use **text** for titles)
 - Use - for bullet points (never use * for bullets)
-- Bold only for key terms inline: **term**
 - The text must be well-structured, professional, and ready to use.`
-      : `Generează un conținut de tip "${contentType}" pe tema "${topic}". Tonul: ${tone}. Instrucțiuni suplimentare: ${instructions || 'nimic'}.
+      : `Genereaza un continut de tip "${contentType}" pe tema "${topic}". Tonul: ${tone}. Instructiuni: ${instructions || 'nimic'}.
 Reguli de formatare:
-- Folosește ## pentru titluri principale și ### pentru subtitluri (nu folosi **text** pentru titluri)
-- Folosește - pentru bullet points (nu folosi * pentru liste)
-- Bold doar pentru termeni cheie inline: **termen**
-- Textul trebuie să fie bine structurat, profesional și gata de utilizare.`;
+- Foloseste ## pentru titluri principale si ### pentru subtitluri (nu folosi **text** pentru titluri)
+- Foloseste - pentru bullet points (nu folosi * pentru liste)
+- Textul trebuie sa fie bine structurat, profesional si gata de utilizare.`;
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
