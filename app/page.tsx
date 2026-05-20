@@ -397,7 +397,17 @@ export default function Home() {
                 overflowY: 'auto'
               }}
             >
-              {hasOutput ? renderMarkdown(output) : 'Conținutul generat va apărea aici.'}
+               {hasOutput ? (
+  <div dangerouslySetInnerHTML={{ __html: output
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/^### (.+)$/gm, '<h3 style="font-size:15px;font-weight:700;margin:14px 0 4px">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 style="font-size:17px;font-weight:700;margin:18px 0 6px">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 style="font-size:20px;font-weight:800;margin:20px 0 8px">$1</h1>')
+    .replace(/^\* (.+)$/gm, '<p style="padding-left:16px">• $1</p>')
+    .replace(/^- (.+)$/gm, '<p style="padding-left:16px">• $1</p>')
+    .replace(/\n/g, '<br/>')
+  }} />
+) : 'Conținutul generat va apărea aici.'}
             </div>
 
             {hasOutput && (
