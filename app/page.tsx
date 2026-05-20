@@ -12,7 +12,7 @@ export default function Home() {
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [generationsLeft, setGenerationsLeft] = useState(5);
-  const [history, setHistory] = useState<Array<{topic: string, content: string, date: string}>>([]);
+  const [history, setHistory] = useState<Array<{ topic: string; content: string; date: string }>>([]);
   const [sendEmail, setSendEmail] = useState('');
   const [hasSubscription, setHasSubscription] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -21,7 +21,7 @@ export default function Home() {
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     if (savedToken) setToken(savedToken);
-    
+
     if (savedToken === 'bdinactiune@gmail.com') {
       setGenerationsLeft(999);
       localStorage.setItem('generationsLeft', '999');
@@ -29,7 +29,7 @@ export default function Home() {
       const saved = localStorage.getItem('generationsLeft');
       if (saved) setGenerationsLeft(parseInt(saved));
     }
-    
+
     const savedHistory = localStorage.getItem('history');
     if (savedHistory) setHistory(JSON.parse(savedHistory));
     const savedSubscription = localStorage.getItem('hasSubscription');
@@ -37,7 +37,10 @@ export default function Home() {
   }, []);
 
   const handleLogin = async () => {
-    if (!email) { alert('Introdu un email'); return; }
+    if (!email) {
+      alert('Introdu un email');
+      return;
+    }
     try {
       const res = await fetch('/api/login', {
         method: 'POST',
@@ -48,7 +51,7 @@ export default function Home() {
       localStorage.setItem('token', data.token);
       setToken(data.token);
       setShowLoginModal(false);
-      
+
       if (email === 'bdinactiune@gmail.com') {
         setGenerationsLeft(999);
         localStorage.setItem('generationsLeft', '999');
@@ -77,13 +80,19 @@ export default function Home() {
       filename: `redactai-${topic || 'continut'}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
     });
   };
 
   const handleSendEmail = async () => {
-    if (!sendEmail) { alert('Introdu o adresă de email'); return; }
-    if (!output || output === 'A apărut o eroare.') { alert('Generează mai întâi un articol'); return; }
+    if (!sendEmail) {
+      alert('Introdu o adresă de email');
+      return;
+    }
+    if (!output || output === 'A apărut o eroare.') {
+      alert('Generează mai întâi un articol');
+      return;
+    }
     try {
       const res = await fetch('/api/send-email', {
         method: 'POST',
@@ -91,28 +100,78 @@ export default function Home() {
         body: JSON.stringify({ email: sendEmail, topic, content: output }),
       });
       const data = await res.json();
-      if (data.success) { alert('Email trimis cu succes!'); setSendEmail(''); }
-      else alert('Eroare la trimitere');
-    } catch { alert('Eroare la trimitere'); }
+      if (data.success) {
+        alert('Email trimis cu succes!');
+        setSendEmail('');
+      } else alert('Eroare la trimitere');
+    } catch {
+      alert('Eroare la trimitere');
+    }
   };
 
   const shareOnFacebook = () => {
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank');
   };
   const shareOnTwitter = () => {
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Am generat un articol cu RedactAI: ${topic}`)}&url=${encodeURIComponent(window.location.href)}`, '_blank');
+    window.open(
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Am generat un articol cu RedactAI: ${topic}`)}&url=${encodeURIComponent(window.location.href)}`,
+      '_blank'
+    );
   };
   const shareOnLinkedIn = () => {
-    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(window.location.href)}&title=${encodeURIComponent(topic)}`, '_blank');
+    window.open(
+      `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(window.location.href)}&title=${encodeURIComponent(topic)}`,
+      '_blank'
+    );
   };
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
     alert('Conținut copiat!');
   };
 
+  // Funcția care convertește Markdown (fără asteriscuri vizibile) în HTML
+  const convertMarkdownToHTML = (text: string) => {
+    if (!text) return '';
+
+    let html = text;
+
+    // 1. Linii care conțin DOAR **text** -> heading H3
+    html = html.replace(/^\*\*([^*\n]+)\*\*\s*$/gm, '<h3>$1</h3>');
+
+    // 2. **text:** la început de linie -> heading H2 (elimină două puncte)
+    html = html.replace(/^\*\*([^*\n]+)\*\*:\s*/gm, '<h2>$1</h2>');
+
+    // 3. Liste cu * la început de linie
+    html = html.replace(/^\*\s+(.+)$/gm, '<p class="bullet-item">• $1</p>');
+
+    // 4. Bold inline **text** -> <strong>
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // 5. Paragrafe: dublu newline devine separator de paragraf
+    const paragraphs = html.split(/\n\n+/);
+    html = paragraphs
+      .map((para) => {
+        if (para.trim().startsWith('<h') || para.trim().startsWith('<p class=')) return para;
+        return `<p>${para.replace(/\n/g, '<br>')}</p>`;
+      })
+      .join('');
+
+    // 6. Curăță eventuale paragrafe goale
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    html = html.replace(/<p><br><\/p>/g, '');
+
+    return html;
+  };
+
   const handleGenerate = async () => {
-    if (!token && generationsLeft <= 0) { alert('Ai epuizat generările gratuite. Autentifică-te pentru mai multe!'); return; }
-    if (token && !hasSubscription && generationsLeft <= 0) { alert('Ai epuizat generările gratuite. Fă upgrade la Premium!'); return; }
+    if (!token && generationsLeft <= 0) {
+      alert('Ai epuizat generările gratuite. Autentifică-te pentru mai multe!');
+      return;
+    }
+    if (token && !hasSubscription && generationsLeft <= 0) {
+      alert('Ai epuizat generările gratuite. Fă upgrade la Premium!');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/generate', {
@@ -121,70 +180,29 @@ export default function Home() {
         body: JSON.stringify({ contentType, topic, tone, instructions }),
       });
       const data = await res.json();
-      // LINIA 124 MODIFICATĂ
-      setOutput((data.text || 'Eroare')
-        .replace(/^\*\*([^*\n]+)\*\*\s*$/gm, '## $1')
-        .replace(/^\*\*([^*\n]+)\*\*:/gm, '## $1')
-        .replace(/^\* /gm, '- '));
-      
-      if (data.text && data.text !== 'Eroare') {
-        const newEntry = { topic, content: data.text, date: new Date().toLocaleString() };
+
+      const rawText = data.text || 'Eroare';
+      // Convertim în HTML fără asteriscuri vizibile
+      const formattedHTML = convertMarkdownToHTML(rawText);
+      setOutput(formattedHTML);
+
+      if (rawText !== 'Eroare') {
+        const newEntry = { topic, content: rawText, date: new Date().toLocaleString() };
         const newHistory = [newEntry, ...history];
         setHistory(newHistory);
         localStorage.setItem('history', JSON.stringify(newHistory));
       }
-      
+
       if (token !== 'bdinactiune@gmail.com' && (!token || (token && !hasSubscription))) {
         const newCount = generationsLeft - 1;
         setGenerationsLeft(newCount);
         localStorage.setItem('generationsLeft', newCount.toString());
       }
-    } catch { setOutput('A apărut o eroare.'); }
-    finally { setLoading(false); }
-  };
-
-  // Renders basic Markdown: **bold**, # headings, newlines, bullet points
-  const renderMarkdown = (text: string) => {
-    return text
-      .split('\n')
-      .map((line, i) => {
-        // Headings with #
-        if (line.startsWith('### ')) return <h3 key={i} style={{ fontSize: 15, fontWeight: 700, margin: '14px 0 4px', color: '#1a1a1a' }}>{line.slice(4)}</h3>;
-        if (line.startsWith('## ')) return <h2 key={i} style={{ fontSize: 17, fontWeight: 700, margin: '18px 0 6px', color: '#1a1a1a' }}>{line.slice(3)}</h2>;
-        if (line.startsWith('# ')) return <h1 key={i} style={{ fontSize: 20, fontWeight: 800, margin: '20px 0 8px', color: '#1a1a1a' }}>{line.slice(2)}</h1>;
-        // Empty line = spacer
-        if (line.trim() === '') return <div key={i} style={{ height: 8 }} />;
-        // Standalone **bold line** = treat as heading
-        if (/^\*\*[^*]+\*\*$/.test(line.trim())) {
-          return <h3 key={i} style={{ fontSize: 15, fontWeight: 700, margin: '14px 0 4px', color: '#1a1a1a' }}>{line.trim().slice(2, -2)}</h3>;
-        }
-        // Bullet points: *, -, •
-        if (/^[\*\-•]\s/.test(line.trim())) {
-          const content = line.trim().slice(2);
-          const parts = content.split(/(\*\*[^*]+\*\*)/g);
-          return (
-            <p key={i} style={{ margin: '3px 0', lineHeight: 1.7, paddingLeft: 16, position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 0, color: '#7c3aed' }}>•</span>
-              {parts.map((part, j) =>
-                part.startsWith('**') && part.endsWith('**')
-                  ? <strong key={j}>{part.slice(2, -2)}</strong>
-                  : part
-              )}
-            </p>
-          );
-        }
-        // Bold **text** inline
-        const parts = line.split(/(\*\*[^*]+\*\*)/g);
-        return (
-          <p key={i} style={{ margin: '2px 0', lineHeight: 1.7 }}>
-            {parts.map((part, j) =>
-              part.startsWith('**') && part.endsWith('**')
-                ? <strong key={j}>{part.slice(2, -2)}</strong>
-                : part
-            )}
-          </p>
-        );
-      });
+    } catch {
+      setOutput('A apărut o eroare.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const tones = ['Professional', 'Casual', 'Enthusiastic'];
@@ -204,15 +222,10 @@ export default function Home() {
 
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', minHeight: '100vh', backgroundColor: '#f8f8f8', color: '#1a1a1a' }}>
-
       {/* NAVBAR - Responsive */}
       <nav style={{ backgroundColor: '#fff', borderBottom: '1px solid #ebebeb', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '12px 16px' }}>
-          
-          {/* Rândul 1: Logo + butoane principale */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-            
-            {/* Logo */}
             <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
               <div style={{ width: 32, height: 32, background: '#7C3AED', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>A</span>
@@ -220,7 +233,6 @@ export default function Home() {
               <span style={{ fontWeight: 700, fontSize: 18, color: '#1a1a1a' }}>RedactAI</span>
             </a>
 
-            {/* Buton login / cont */}
             {!isLoggedIn ? (
               <button
                 onClick={() => setShowLoginModal(true)}
@@ -231,9 +243,7 @@ export default function Home() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {hasSubscription ? (
-                  <span style={{ fontSize: 11, background: '#EDE9FE', color: '#6D28D9', padding: '4px 10px', borderRadius: 20, fontWeight: 600 }}>
-                    Premium
-                  </span>
+                  <span style={{ fontSize: 11, background: '#EDE9FE', color: '#6D28D9', padding: '4px 10px', borderRadius: 20, fontWeight: 600 }}>Premium</span>
                 ) : (
                   <span style={{ fontSize: 11, background: '#FEF3C7', color: '#92400E', padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>
                     {generationsLeft} gen.
@@ -247,18 +257,53 @@ export default function Home() {
                     Cont ▾
                   </button>
                   {showUserMenu && (
-                    <div style={{ position: 'absolute', right: 0, top: 35, background: '#fff', border: '1px solid #ebebeb', borderRadius: 10, padding: 8, minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', zIndex: 100 }}>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 35,
+                        background: '#fff',
+                        border: '1px solid #ebebeb',
+                        borderRadius: 10,
+                        padding: 8,
+                        minWidth: 180,
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                        zIndex: 100,
+                      }}
+                    >
                       {!hasSubscription && (
                         <button
                           onClick={handleSubscribe}
-                          style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 12, fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', border: 'none', borderRadius: 8, cursor: 'pointer', marginBottom: 4 }}
+                          style={{
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: '#7C3AED',
+                            background: '#EDE9FE',
+                            border: 'none',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            marginBottom: 4,
+                          }}
                         >
                           Upgrade la Premium
                         </button>
                       )}
                       <button
                         onClick={handleLogout}
-                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 12, color: '#666', background: 'none', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 12px',
+                          fontSize: 12,
+                          color: '#666',
+                          background: 'none',
+                          border: 'none',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                        }}
                       >
                         Deconectare
                       </button>
@@ -269,14 +314,21 @@ export default function Home() {
             )}
           </div>
 
-          {/* Rândul 2: Link-uri navigare (Prețuri, Blog, Limbă) */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginTop: '10px', flexWrap: 'wrap' }}>
-            <a href="/pricing" style={{ fontSize: 14, color: '#555', textDecoration: 'none', fontWeight: 500 }}>Prețuri</a>
-            <a href="/blog" style={{ fontSize: 14, color: '#555', textDecoration: 'none', fontWeight: 500 }}>Blog</a>
+            <a href="/pricing" style={{ fontSize: 14, color: '#555', textDecoration: 'none', fontWeight: 500 }}>
+              Prețuri
+            </a>
+            <a href="/blog" style={{ fontSize: 14, color: '#555', textDecoration: 'none', fontWeight: 500 }}>
+              Blog
+            </a>
             <div style={{ display: 'flex', gap: 6, fontSize: 13 }}>
-              <a href="/" style={{ color: '#7C3AED', fontWeight: 600, textDecoration: 'none' }}>RO</a>
+              <a href="/" style={{ color: '#7C3AED', fontWeight: 600, textDecoration: 'none' }}>
+                RO
+              </a>
               <span style={{ color: '#ccc' }}>/</span>
-              <a href="/en" style={{ color: '#aaa', textDecoration: 'none' }}>EN</a>
+              <a href="/en" style={{ color: '#aaa', textDecoration: 'none' }}>
+                EN
+              </a>
             </div>
           </div>
         </div>
@@ -285,7 +337,8 @@ export default function Home() {
       {/* HERO */}
       <div style={{ background: '#fff', borderBottom: '1px solid #ebebeb', padding: '48px 24px 40px', textAlign: 'center' }}>
         <h1 style={{ fontSize: 32, fontWeight: 800, color: '#1a1a1a', margin: '0 0 12px', lineHeight: 1.2 }}>
-          Generează conținut de calitate<br />
+          Generează conținut de calitate
+          <br />
           <span style={{ color: '#7C3AED' }}>în câteva secunde</span>
         </h1>
         <p style={{ fontSize: 16, color: '#666', margin: '0 0 24px', lineHeight: 1.6, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
@@ -301,46 +354,79 @@ export default function Home() {
 
       {/* MAIN CONTENT */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px' }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
           {/* LEFT — Form */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ebebeb', padding: 24 }}>
+          <div style={{ flex: '1 1 300px', background: '#fff', borderRadius: 16, border: '1px solid #ebebeb', padding: 24 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 20px', color: '#1a1a1a' }}>Configurează conținutul</h2>
 
             <div style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tip conținut</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Tip conținut
+              </label>
               <select
                 value={contentType}
                 onChange={(e) => setContentType(e.target.value)}
-                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#1a1a1a', backgroundColor: '#fff', appearance: 'none', cursor: 'pointer' }}
+                style={{
+                  width: '100%',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  fontSize: 14,
+                  color: '#1a1a1a',
+                  backgroundColor: '#fff',
+                  appearance: 'none',
+                  cursor: 'pointer',
+                }}
               >
-                {contentTypes.map(t => <option key={t} value={t}>{contentTypeLabels[t]}</option>)}
+                {contentTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {contentTypeLabels[t]}
+                  </option>
+                ))}
               </select>
             </div>
 
             <div style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subiect</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Subiect
+              </label>
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="Despre ce vrei să scrii?"
-                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#1a1a1a', backgroundColor: '#fff', boxSizing: 'border-box' }}
+                style={{
+                  width: '100%',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  fontSize: 14,
+                  color: '#1a1a1a',
+                  backgroundColor: '#fff',
+                  boxSizing: 'border-box',
+                }}
               />
             </div>
 
             <div style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ton</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Ton
+              </label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {tones.map(t => (
+                {tones.map((t) => (
                   <button
                     key={t}
                     onClick={() => setTone(t)}
                     style={{
-                      padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: 'none',
+                      padding: '7px 16px',
+                      borderRadius: 20,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      border: 'none',
                       background: tone === t ? '#7C3AED' : '#f3f4f6',
                       color: tone === t ? '#fff' : '#555',
-                      transition: 'all 0.15s'
+                      transition: 'all 0.15s',
                     }}
                   >
                     {toneLabels[t]}
@@ -350,13 +436,25 @@ export default function Home() {
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Instrucțiuni suplimentare</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#888', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Instrucțiuni suplimentare
+              </label>
               <textarea
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
                 placeholder="Orice detalii suplimentare..."
-                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 14, color: '#1a1a1a', backgroundColor: '#fff', resize: 'vertical', boxSizing: 'border-box' }}
+                style={{
+                  width: '100%',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  fontSize: 14,
+                  color: '#1a1a1a',
+                  backgroundColor: '#fff',
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                }}
               />
             </div>
 
@@ -364,9 +462,16 @@ export default function Home() {
               onClick={handleGenerate}
               disabled={isDisabled}
               style={{
-                width: '100%', background: loading ? '#a78bfa' : '#7C3AED', color: '#fff', border: 'none',
-                borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-                transition: 'background 0.15s'
+                width: '100%',
+                background: loading ? '#a78bfa' : '#7C3AED',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '13px',
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'background 0.15s',
               }}
             >
               {loading ? 'Se generează...' : 'Generează conținut'}
@@ -374,15 +479,39 @@ export default function Home() {
           </div>
 
           {/* RIGHT — Output */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ebebeb', padding: 24, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: '1 1 300px', background: '#fff', borderRadius: 16, border: '1px solid #ebebeb', padding: 24, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#1a1a1a' }}>Rezultat</h2>
               {hasOutput && (
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={copyToClipboard} style={{ fontSize: 12, padding: '5px 12px', border: '1px solid #e5e7eb', borderRadius: 7, background: '#fff', color: '#555', cursor: 'pointer', fontWeight: 500 }}>
+                  <button
+                    onClick={copyToClipboard}
+                    style={{
+                      fontSize: 12,
+                      padding: '5px 12px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 7,
+                      background: '#fff',
+                      color: '#555',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
                     Copiază
                   </button>
-                  <button onClick={exportToPDF} style={{ fontSize: 12, padding: '5px 12px', border: '1px solid #e5e7eb', borderRadius: 7, background: '#fff', color: '#555', cursor: 'pointer', fontWeight: 500 }}>
+                  <button
+                    onClick={exportToPDF}
+                    style={{
+                      fontSize: 12,
+                      padding: '5px 12px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 7,
+                      background: '#fff',
+                      color: '#555',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
                     Export PDF
                   </button>
                 </div>
@@ -392,42 +521,105 @@ export default function Home() {
             <div
               id="content-to-export"
               style={{
-                flex: 1, background: '#fafafa', borderRadius: 10, padding: 16, minHeight: 200,
-                fontSize: 14, lineHeight: 1.7, color: hasOutput ? '#1a1a1a' : '#aaa',
-                overflowY: 'auto'
+                flex: 1,
+                background: '#fafafa',
+                borderRadius: 10,
+                padding: 16,
+                minHeight: 200,
+                fontSize: 14,
+                lineHeight: 1.7,
+                color: hasOutput ? '#1a1a1a' : '#aaa',
+                overflowY: 'auto',
               }}
             >
-               {hasOutput ? (
-  <div dangerouslySetInnerHTML={{ __html: output
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/^### (.+)$/gm, '<h3 style="font-size:15px;font-weight:700;margin:14px 0 4px">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 style="font-size:17px;font-weight:700;margin:18px 0 6px">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 style="font-size:20px;font-weight:800;margin:20px 0 8px">$1</h1>')
-    .replace(/^\* (.+)$/gm, '<p style="padding-left:16px">• $1</p>')
-    .replace(/^- (.+)$/gm, '<p style="padding-left:16px">• $1</p>')
-    .replace(/\n/g, '<br/>')
-  }} />
-) : 'Conținutul generat va apărea aici.'}
+              {hasOutput ? (
+                <div dangerouslySetInnerHTML={{ __html: output }} />
+              ) : (
+                'Conținutul generat va apărea aici.'
+              )}
             </div>
 
             {hasOutput && (
               <>
-                <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
                   <input
                     type="email"
                     placeholder="Trimite pe email..."
                     value={sendEmail}
                     onChange={(e) => setSendEmail(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm"
+                    style={{
+                      flex: 1,
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 12,
+                      padding: '10px 14px',
+                      fontSize: 13,
+                    }}
                   />
-                  <button onClick={handleSendEmail} className="bg-purple-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-purple-700 transition">
+                  <button
+                    onClick={handleSendEmail}
+                    style={{
+                      background: '#7C3AED',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 12,
+                      padding: '10px',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
                     Trimite
                   </button>
                 </div>
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <button onClick={shareOnFacebook} style={{ flex: 1, padding: '8px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 12, color: '#1877F2', fontWeight: 600, cursor: 'pointer' }}>Facebook</button>
-                  <button onClick={shareOnTwitter} style={{ flex: 1, padding: '8px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 12, color: '#0EA5E9', fontWeight: 600, cursor: 'pointer' }}>Twitter</button>
-                  <button onClick={shareOnLinkedIn} style={{ flex: 1, padding: '8px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 12, color: '#0A66C2', fontWeight: 600, cursor: 'pointer' }}>LinkedIn</button>
+                  <button
+                    onClick={shareOnFacebook}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 8,
+                      background: '#fff',
+                      fontSize: 12,
+                      color: '#1877F2',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Facebook
+                  </button>
+                  <button
+                    onClick={shareOnTwitter}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 8,
+                      background: '#fff',
+                      fontSize: 12,
+                      color: '#0EA5E9',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Twitter
+                  </button>
+                  <button
+                    onClick={shareOnLinkedIn}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 8,
+                      background: '#fff',
+                      fontSize: 12,
+                      color: '#0A66C2',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    LinkedIn
+                  </button>
                 </div>
               </>
             )}
@@ -441,15 +633,24 @@ export default function Home() {
             <div style={{ display: 'grid', gap: 12 }}>
               {history.map((item, index) => (
                 <div key={index} style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: 12, padding: '16px 20px' }}>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{item.topic}</p>
-                      <p className="text-xs text-gray-400">{item.date}</p>
-                      <p className="text-sm text-gray-600 mt-1">{item.content.substring(0, 120)}...</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: 700, margin: '0 0 4px', color: '#1a1a1a' }}>{item.topic}</p>
+                      <p style={{ fontSize: 11, color: '#aaa', margin: '0 0 8px' }}>{item.date}</p>
+                      <p style={{ fontSize: 13, color: '#666', margin: 0 }}>{item.content.substring(0, 120)}...</p>
                     </div>
                     <button
-                      onClick={() => setOutput(item.content)}
-                      className="bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-purple-200 transition"
+                      onClick={() => setOutput(convertMarkdownToHTML(item.content))}
+                      style={{
+                        background: '#EDE9FE',
+                        color: '#6D28D9',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '8px 16px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
                     >
                       Vezi
                     </button>
@@ -479,17 +680,44 @@ export default function Home() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-              style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px', fontSize: 15, color: '#1a1a1a', boxSizing: 'border-box', marginBottom: 12 }}
+              style={{
+                width: '100%',
+                border: '1px solid #e5e7eb',
+                borderRadius: 10,
+                padding: '12px 14px',
+                fontSize: 15,
+                color: '#1a1a1a',
+                boxSizing: 'border-box',
+                marginBottom: 12,
+              }}
             />
             <button
               onClick={handleLogin}
-              style={{ width: '100%', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}
+              style={{
+                width: '100%',
+                background: '#7C3AED',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '13px',
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
             >
               Continuă
             </button>
             <button
               onClick={() => setShowLoginModal(false)}
-              style={{ width: '100%', background: 'none', border: 'none', marginTop: 12, fontSize: 13, color: '#aaa', cursor: 'pointer' }}
+              style={{
+                width: '100%',
+                background: 'none',
+                border: 'none',
+                marginTop: 12,
+                fontSize: 13,
+                color: '#aaa',
+                cursor: 'pointer',
+              }}
             >
               Anulează
             </button>
