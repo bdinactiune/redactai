@@ -146,7 +146,6 @@ export default function Home() {
 
     // 4. Bold inline **text** -> <strong>
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
     // 5. Paragrafe: dublu newline devine separator de paragraf
     const paragraphs = html.split(/\n\n+/);
     html = paragraphs
