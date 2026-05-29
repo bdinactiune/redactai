@@ -197,7 +197,7 @@ export default function EnglishHome() {
             
             <a href="/en" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
               <div style={{ width: 32, height: 32, background: '#7C3AED', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>A</span>
+                <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>R</span>
               </div>
               <span style={{ fontWeight: 700, fontSize: 18, color: '#1a1a1a' }}>Redactai</span>
             </a>
