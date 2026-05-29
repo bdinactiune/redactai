@@ -74,7 +74,7 @@ export default function EnglishHome() {
     const html2pdf = (await import('html2pdf.js')).default;
     html2pdf(element, {
       margin: 0.5,
-      filename: `articolai-${topic || 'article'}.pdf`,
+      filename: `redactai-${topic || 'article'}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
