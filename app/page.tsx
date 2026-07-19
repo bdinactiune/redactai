@@ -131,6 +131,11 @@ export default function Home() {
         body: JSON.stringify({ contentType, topic, tone, instructions }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setOutput(data.error || 'A apărut o eroare.');
+        setLoading(false);
+        return;
+      }
       setOutput(data.text || 'Eroare');
       if (data.text && data.text !== 'Eroare') {
         const newEntry = { topic, content: data.text, date: new Date().toLocaleString() };
