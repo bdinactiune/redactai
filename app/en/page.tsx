@@ -138,16 +138,20 @@ export default function EnglishHome() {
   };
 
   const handleGenerate = async () => {
-    if (!token && generationsLeft <= 0) { alert('You have exhausted free generations. Please login for more!'); return; }
-    if (token && !hasSubscription && generationsLeft <= 0) { alert('You have exhausted free generations. Upgrade to Premium!'); return; }
     setLoading(true);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ contentType, topic, tone, instructions, language: 'en' }),
       });
       const data = await res.json();
+      if (typeof data.remaining === 'number') {
+        setGenerationsLeft(data.remaining);
+        localStorage.setItem('generationsLeft', data.remaining.toString());
+      }
       if (!res.ok) {
         setOutput(data.error || 'An error occurred.');
         setLoading(false);
@@ -159,11 +163,6 @@ export default function EnglishHome() {
         const newHistory = [newEntry, ...history];
         setHistory(newHistory);
         localStorage.setItem('history', JSON.stringify(newHistory));
-      }
-      if (token !== 'bdinactiune@gmail.com' && (!token || (token && !hasSubscription))) {
-        const newCount = generationsLeft - 1;
-        setGenerationsLeft(newCount);
-        localStorage.setItem('generationsLeft', newCount.toString());
       }
     } catch { setOutput('An error occurred.'); }
     finally { setLoading(false); }
