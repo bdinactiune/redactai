@@ -11,7 +11,7 @@ export default function EnglishHome() {
   const [instructions, setInstructions] = useState('');
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [generationsLeft, setGenerationsLeft] = useState(5);
+  const [generationsLeft, setGenerationsLeft] = useState(10);
   const [history, setHistory] = useState<Array<{topic: string, content: string, date: string}>>([]);
   const [sendEmail, setSendEmail] = useState('');
   const [hasSubscription, setHasSubscription] = useState(false);
