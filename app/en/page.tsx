@@ -148,6 +148,11 @@ export default function EnglishHome() {
         body: JSON.stringify({ contentType, topic, tone, instructions, language: 'en' }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setOutput(data.error || 'An error occurred.');
+        setLoading(false);
+        return;
+      }
       setOutput(data.text || 'Error');
       if (data.text && data.text !== 'Error') {
         const newEntry = { topic, content: data.text, date: new Date().toLocaleString() };
