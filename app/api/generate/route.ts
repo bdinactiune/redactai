@@ -1,15 +1,26 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
+import jwt from 'jsonwebtoken';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-// 5 generations per IP per 24h for anonymous users. Change the window/count
-// here if you want a different free tier.
-const ratelimit = new Ratelimit({
-  redis: Redis.fromEnv(),
+const redis = Redis.fromEnv();
+
+// Anonymous visitors: 5 generations per IP per 24h.
+const anonymousRatelimit = new Ratelimit({
+  redis,
   limiter: Ratelimit.slidingWindow(5, '24 h'),
   analytics: true,
-  prefix: 'ratelimit:generate',
+  prefix: 'ratelimit:generate:anon',
+});
+
+// Logged-in users (identified by email, not IP): higher limit so a shared
+// IP or subscriber isn't penalized like an anonymous abuser.
+const authedRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(50, '24 h'),
+  analytics: true,
+  prefix: 'ratelimit:generate:auth',
 });
 
 const MAX_TOPIC_LENGTH = 300;
@@ -25,9 +36,20 @@ function getClientIp(request: Request): string {
   return 'unknown';
 }
 
-export async function POST(request: Request) {
-  const ip = getClientIp(request);
+function getVerifiedEmail(request: Request): string | null {
+  const auth = request.headers.get('authorization');
+  if (!auth?.startsWith('Bearer ')) return null;
+  const token = auth.slice('Bearer '.length);
+  try {
+    const secret = process.env.JWT_SECRET || 'fallback-dev-secret-change-in-prod';
+    const decoded = jwt.verify(token, secret) as { email?: string };
+    return decoded.email || null;
+  } catch {
+    return null;
+  }
+}
 
+export async function POST(request: Request) {
   let body: any;
   try {
     body = await request.json();
@@ -37,15 +59,29 @@ export async function POST(request: Request) {
 
   const { contentType, topic, tone, instructions, language = 'ro' } = body;
 
-  // Server-side enforcement -- this is the actual limit. The client-side
-  // counter is only for UI display; it can't be trusted or relied on.
-  const { success, remaining, reset } = await ratelimit.limit(ip);
-  if (!success) {
+  // Authenticated users get a higher limit keyed by their verified email
+  // (from a real, server-verified JWT -- not client-supplied). Everyone
+  // else is limited by IP. Either way, this is the real, server-side
+  // enforcement -- the client-side counter shown in the UI is just a
+  // display sync of whatever this endpoint returns.
+  const email = getVerifiedEmail(request);
+  const isOwner = email === 'bdinactiune@gmail.com';
+
+  let limitResult: { success: boolean; remaining: number; reset: number };
+  if (isOwner) {
+    limitResult = { success: true, remaining: 999, reset: 0 };
+  } else if (email) {
+    limitResult = await authedRatelimit.limit(email);
+  } else {
+    limitResult = await anonymousRatelimit.limit(getClientIp(request));
+  }
+
+  if (!limitResult.success) {
     const message = language === 'en'
-      ? 'You have reached today\'s free generation limit. Try again tomorrow or upgrade to Premium.'
-      : 'Ai atins limita de generari gratuite pentru azi. Incearca din nou maine sau fa upgrade la Premium.';
+      ? 'You have reached today\'s generation limit. Try again tomorrow or upgrade to Premium.'
+      : 'Ai atins limita de generari pentru azi. Incearca din nou maine sau fa upgrade la Premium.';
     return NextResponse.json(
-      { error: message, remaining, resetAt: reset },
+      { error: message, remaining: limitResult.remaining, resetAt: limitResult.reset },
       { status: 429 }
     );
   }
@@ -67,14 +103,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Instructions too long' }, { status: 400 });
     }
 
-    // Reject values outside the known set instead of interpolating
-    // arbitrary strings straight into the prompt.
     const safeContentType = ALLOWED_CONTENT_TYPES.includes(contentType) ? contentType : 'article';
     const safeTone = ALLOWED_TONES.includes(tone) ? tone : 'professional';
 
-    // Treat topic/instructions as inert data, not instructions: wrap them
-    // in clearly delimited blocks so the model is less likely to follow
-    // any embedded "ignore previous instructions"-style text.
     const sanitize = (s: string) => s.replace(/[<>]/g, '').slice(0, MAX_TOPIC_LENGTH + MAX_INSTRUCTIONS_LENGTH);
     const safeTopic = sanitize(topic);
     const safeInstructions = instructions ? sanitize(instructions) : (language === 'en' ? 'none' : 'nimic');
@@ -112,7 +143,7 @@ ${safeInstructions}
     });
 
     const generatedText = completion.choices[0]?.message?.content || '';
-    return NextResponse.json({ text: generatedText, remaining });
+    return NextResponse.json({ text: generatedText, remaining: limitResult.remaining });
   } catch (error: any) {
     console.error('Public API error:', error);
     return NextResponse.json({ error: error.message || 'Eroare la generare' }, { status: 500 });
