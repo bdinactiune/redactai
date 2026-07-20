@@ -121,16 +121,20 @@ export default function Home() {
   };
 
   const handleGenerate = async () => {
-    if (!token && generationsLeft <= 0) { alert('Ai epuizat generările gratuite. Autentifică-te pentru mai multe!'); return; }
-    if (token && !hasSubscription && generationsLeft <= 0) { alert('Ai epuizat generările gratuite. Fă upgrade la Premium!'); return; }
     setLoading(true);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ contentType, topic, tone, instructions }),
       });
       const data = await res.json();
+      if (typeof data.remaining === 'number') {
+        setGenerationsLeft(data.remaining);
+        localStorage.setItem('generationsLeft', data.remaining.toString());
+      }
       if (!res.ok) {
         setOutput(data.error || 'A apărut o eroare.');
         setLoading(false);
@@ -142,12 +146,6 @@ export default function Home() {
         const newHistory = [newEntry, ...history];
         setHistory(newHistory);
         localStorage.setItem('history', JSON.stringify(newHistory));
-      }
-      
-      if (token !== 'bdinactiune@gmail.com' && (!token || (token && !hasSubscription))) {
-        const newCount = generationsLeft - 1;
-        setGenerationsLeft(newCount);
-        localStorage.setItem('generationsLeft', newCount.toString());
       }
     } catch { setOutput('A apărut o eroare.'); }
     finally { setLoading(false); }
