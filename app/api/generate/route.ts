@@ -28,16 +28,24 @@ function getClientIp(request: Request): string {
 export async function POST(request: Request) {
   const ip = getClientIp(request);
 
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+
+  const { contentType, topic, tone, instructions, language = 'ro' } = body;
+
   // Server-side enforcement -- this is the actual limit. The client-side
   // counter is only for UI display; it can't be trusted or relied on.
   const { success, remaining, reset } = await ratelimit.limit(ip);
   if (!success) {
+    const message = language === 'en'
+      ? 'You have reached today\'s free generation limit. Try again tomorrow or upgrade to Premium.'
+      : 'Ai atins limita de generari gratuite pentru azi. Incearca din nou maine sau fa upgrade la Premium.';
     return NextResponse.json(
-      {
-        error: 'Ai atins limita de generari gratuite pentru azi. Incearca din nou maine sau fa upgrade la Premium.',
-        remaining,
-        resetAt: reset,
-      },
+      { error: message, remaining, resetAt: reset },
       { status: 429 }
     );
   }
@@ -47,9 +55,6 @@ export async function POST(request: Request) {
   });
 
   try {
-    const body = await request.json();
-    const { contentType, topic, tone, instructions, language = 'ro' } = body;
-
     if (!topic || typeof topic !== 'string') {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
     }
